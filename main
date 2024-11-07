@@ -1,0 +1,116 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.Random; // 무작위의 수를 선택하기 위해 Random import
+
+public class OddEvenCheck extends JFrame {
+    // 필드
+    private String userChoice; // 사용자가 '홀' 또는 '짝'을 선택한 값을 저장
+    private Random random = new Random(); // 무작위 수 생성기
+    
+    // 생성자
+    public OddEvenCheck() {
+        super("홀짝 게임");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(300, 230);
+        setContentPane(new MyPanel()); // 패널 부착
+        setVisible(true);
+    }
+    
+    // 패널 클래스 정의
+    class MyPanel extends JPanel {
+        // 패널 필드
+        private JLabel label = new JLabel("?"); // 숫자가 표시되는 라벨
+        private JLabel message = new JLabel("무엇일까요?"); // 결과 메시지 라벨
+        private JButton[] buttons = {
+            new JButton("홀"),
+            new JButton("짝"),
+            new JButton("확인"),
+            new JButton("다시")
+        };
+        
+        // 패널 생성자
+        public MyPanel() {
+            setLayout(null);
+            
+            // '?' 라벨 설정
+            label.setFont(new Font("고딕", Font.PLAIN, 30));
+            label.setSize(70, 70);
+            label.setBackground(Color.magenta);
+            label.setHorizontalAlignment(JLabel.CENTER);
+            label.setOpaque(true);
+            label.setLocation(100, 30);
+            add(label);
+            
+            // 결과 메시지 설정
+            message.setSize(120, 20);
+            message.setLocation(100, 110);
+            add(message);
+            
+            // 버튼 배열 설정 및 이벤트 리스너 부착
+            for (int i = 0; i < buttons.length; i++) {
+                JButton button = buttons[i];
+                button.setSize(60, 30);
+                button.setLocation(10 + i * 70, 160);
+                button.addActionListener(new MyAction());
+                add(button);
+            }
+        }
+    }
+    
+    // 이벤트 리스너 클래스
+    class MyAction implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            JButton clickedButton = (JButton) e.getSource();
+            switch (clickedButton.getText()) {
+                case "홀":
+                    userChoice = "홀";
+                    break;
+                case "짝":
+                    userChoice = "짝";
+                    break;
+                case "확인":
+                    check(userChoice); // 사용자 선택을 전달하여 판단
+                    break;
+                case "다시":
+                    userChoice = null;
+                    restart(); // 게임을 초기화
+                    break;
+            }
+        }
+    }
+    
+    // 사용자의 선택과 무작위 수를 비교하여 결과 출력
+    void check(String userChoice) {
+        if (userChoice == null || userChoice.isEmpty()) {
+            ((MyPanel) getContentPane()).message.setText("홀이나 짝 먼저 선택!"); // 선택 유도 메시지
+            return;
+        }
+        
+        int hiddenNumber = random.nextInt(10) + 1; // 1부터 10 사이의 무작위 숫자 생성
+        boolean isEven = hiddenNumber % 2 == 0;
+        
+        String resultMessage;
+        if (isEven && "짝".equals(userChoice)) {
+            resultMessage = "짝! 맞았어요.";
+        } else if (!isEven && "홀".equals(userChoice)) {
+            resultMessage = "홀! 맞았어요.";
+        } else {
+            resultMessage = isEven ? "짝! 아쉽군요" : "홀! 아쉽군요";
+        }
+        
+        ((MyPanel) getContentPane()).label.setText(String.valueOf(hiddenNumber)); // 숫자 공개
+        ((MyPanel) getContentPane()).message.setText(resultMessage); // 결과 메시지 출력
+    }
+    
+    // 게임을 초기화하는 메서드
+    void restart() {
+        ((MyPanel) getContentPane()).label.setText("?"); // '?'로 초기화
+        ((MyPanel) getContentPane()).message.setText("무엇일까요?"); // 메시지 초기화
+    }
+    
+    // 메인 메서드
+    public static void main(String[] args) {
+        new OddEvenCheck();
+    }
+}
