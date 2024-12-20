@@ -1,0 +1,541 @@
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.time.LocalDate; // PT 예약 구현용
+import java.time.YearMonth;
+
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.swing.BorderFactory;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.SwingConstants;
+import javax.swing.table.DefaultTableModel; // PT 예약 구현용
+
+class User {
+    String name;
+    int age;
+    ImageIcon photo;
+    String joinDate;
+    String endDate;
+
+    public User(String name, int age, ImageIcon photo, String joinDate, String endDate) {
+        this.name = name;
+        this.age = age;
+        this.photo = photo;
+        this.joinDate = joinDate;
+        this.endDate = endDate;
+    }
+}
+
+class crowdGraph extends JPanel {
+   private int userCount;
+   
+   public crowdGraph(int userCount) {
+      this.userCount = userCount;
+   }
+   
+   public void setUserCount(int userCount) {
+      this.userCount = userCount;
+      repaint();
+   }
+   
+   @Override
+   protected void paintComponent(Graphics g) {
+      super.paintComponent(g);
+      int width = getWidth();
+      int height = getHeight();
+      
+      //그래프 배경
+      g.setColor(Color.LIGHT_GRAY);
+      g.fillRect(0, 0, width, height);
+      
+      //그래프 높이 및 색상 변경
+      int barHeight = (int) ((userCount / 30.0) * height); //30명 기준
+      if(userCount < 15) {
+         g.setColor(Color.green);
+      } else if (userCount < 20) {
+         g.setColor(Color.yellow);
+      } else if (userCount < 30) {
+         g.setColor(Color.orange);
+      } else {
+         g.setColor(Color.red);
+      }
+      
+      //그래프 그리기
+      g.fillRect(50, height-barHeight, 100, barHeight);
+      g.setColor(Color.BLACK);
+      g.drawString("현재 이용자 수: "+userCount,50,height-barHeight-10);
+   }
+   
+}
+
+
+
+public class Gym extends JFrame {
+   
+    private User user;
+    private JFrame userFrame; // 회원 관리 창
+    private JFrame ptFrame; // PT 예약 창
+    private JFrame trainerFrame; // 트레이너 정보 창
+    private JFrame recordFrame; // 운동 기록 창
+    private JFrame membershipFrame; // 멤버십 창
+    
+    private int currentUser; //현재 이용자
+    private JLabel userCount; // 이용자 수 표시
+    private JLabel crowdCheck; // 혼잡도 표시
+    private crowdGraph crowdGraphPanel;
+
+    Gym() {
+        JFrame g = new JFrame();
+        g.setTitle("헬스장 회원 관리 어플");
+        g.setSize(2000, 1000);
+        g.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        g.setLayout(new BorderLayout());
+
+        // 헬스장 이름 Label
+        JLabel gymName = new JLabel("Java Gym");
+        gymName.setHorizontalAlignment(SwingConstants.CENTER);
+        gymName.setFont(new Font("Arial", Font.BOLD, 100));
+        g.add(gymName, BorderLayout.NORTH);
+        
+      //쓰레드로 1초간격마다 사진 4개가 계속 바뀌도록 설정
+        //교재 p.716의 13-1 예제 참고
+        JLabel threadImage = new JLabel();
+        threadImage.setHorizontalAlignment(SwingConstants.CENTER);
+        g.add(threadImage, BorderLayout.CENTER);
+
+        ImageIcon[] images = {
+            new ImageIcon(getClass().getResource("/images/gym1.jpg")),
+            new ImageIcon(getClass().getResource("/images/gym2.jpg")),
+            new ImageIcon(getClass().getResource("/images/gym3.jpg")),
+            //new ImageIcon(getClass().getResource("/images/test3.jpg"))
+        };
+
+        Thread imageThread = new Thread(() -> {
+            int timerCount = 0;
+            while (true) {
+            	threadImage.setIcon(images[timerCount]);
+            	timerCount = (timerCount + 1) % images.length;
+                try {
+                    Thread.sleep(2000); // 1초 대기
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+        });
+        imageThread.start();
+
+        // 좌측 5개 버튼 Panel
+        JPanel left = new JPanel();
+        left.setLayout(new GridLayout(5, 1));
+
+        String[] leftbtns = {"회원 관리", "PT 예약", "트레이너 정보", "운동 기록", "멤버십"};
+     
+        
+        for (String label : leftbtns) {
+        	JButton lbtns = new JButton(label);
+            lbtns.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+            lbtns.addActionListener(new ButtonClickListener(label));
+            lbtns.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2)); // 테두리 설정
+            
+            lbtns.setBackground(new Color(173, 216, 230)); // 기본 색상: 밝은 파란색
+            lbtns.setForeground(Color.BLACK); // 글자 색상 설정
+
+            // 마우스 이벤트 추가
+            lbtns.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    lbtns.setBackground(new Color(135, 206, 250)); // 호버 시 색상
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    lbtns.setBackground(new Color(173, 216, 230)); // 원래 색상
+                }
+            });
+
+            
+            left.add(lbtns);
+        }
+        
+
+        left.setPreferredSize(new Dimension(250, 500));
+        g.add(left, BorderLayout.WEST);
+
+        // 우측 3개 버튼 Panel
+        JPanel right = new JPanel();
+        right.setLayout(new GridLayout(3, 1)); // 5행 1열
+        
+        // 실시간 이용자 버튼
+        JButton userBtn = new JButton("실시간 이용자");
+        userBtn.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+        userBtn.setBackground(new Color(255,255,0));
+        userBtn.setForeground(Color.black);
+        userBtn.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2)); // 테두리 설정
+        userBtn.addMouseListener(new MouseAdapter() {
+        	@Override
+        	public void mouseEntered(MouseEvent e) {
+        		userBtn.setBackground(new Color(200,200,0));
+        	}
+        	@Override
+        	public void mouseExited(MouseEvent e) {
+        		userBtn.setBackground(new Color(255,255,0));
+        	}
+        	
+        });
+        
+        userBtn.addActionListener(e -> showUserStatus());
+        right.add(userBtn);
+        
+        // 입장 버튼
+        JButton enterBtn = new JButton("입장");
+        enterBtn.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+        enterBtn.setBackground(new Color(0,255,0));
+        enterBtn.setForeground(Color.black);
+        enterBtn.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2)); // 테두리 설정
+        
+        enterBtn.addMouseListener(new MouseAdapter() {
+        	@Override
+        	public void mouseEntered(MouseEvent e) {
+        		enterBtn.setBackground(new Color(50,205,50));
+        	}
+        	@Override
+        	public void mouseExited(MouseEvent e) {
+        		enterBtn.setBackground(new Color(0,255,0));
+        	}
+        	
+        });
+        
+        enterBtn.addActionListener(e -> {
+           currentUser++;
+           updateUserStatus();
+           playSound("sound/enter.wav");
+        });
+        right.add(enterBtn);
+        
+        // 퇴장 버튼
+        JButton exitBtn = new JButton("퇴장");
+        exitBtn.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+        exitBtn.setBackground(new Color(215,0,0));
+        exitBtn.setForeground(Color.black);
+        exitBtn.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2)); // 테두리 설정
+        
+        exitBtn.addMouseListener(new MouseAdapter() {
+        	@Override
+        	public void mouseEntered(MouseEvent e) {
+        		exitBtn.setBackground(new Color(200,20,60));
+        	}
+        	@Override
+        	public void mouseExited(MouseEvent e) {
+        		exitBtn.setBackground(new Color(215,0,0));
+        	}
+        	
+        });
+        
+        exitBtn.addActionListener(e -> {
+           if(currentUser > 0) {
+              currentUser--;
+              updateUserStatus();
+           }
+           playSound("sound/exit.wav");
+        });
+        right.add(exitBtn);
+
+        right.setPreferredSize(new Dimension(250, 100));
+        g.add(right, BorderLayout.EAST);
+        
+        // 회원 정보
+        user = new User("전형준", 23, new ImageIcon(getClass().getResource("images/photo.png")), "2023-11-26", "2024-11-26");
+        
+        // 초기 이용자 설정
+        currentUser = 10;
+        userCount = new JLabel("현재 이용자 수 : "+currentUser);
+        crowdCheck = new JLabel("혼잡도 : "+getCrowdLevel(currentUser));
+        
+        // 혼잡도 그래프 패널
+        crowdGraphPanel = new crowdGraph(currentUser);
+
+        
+        g.setVisible(true);
+    }
+    
+    
+    private void updateUserStatus() {
+       userCount.setText("현재 이용자 수 :"+currentUser);
+       crowdCheck.setText("혼잡도 :"+getCrowdLevel(currentUser));
+       crowdGraphPanel.setUserCount(currentUser);
+    }
+    
+    class userStatusPanel extends JPanel {
+    	private JLabel userCountLabel;
+    	private JLabel crowdCheckLabel;
+    	private crowdGraph crowdGraphLabel;
+    	
+    	public userStatusPanel(int currentUser) {
+    		setLayout(new BorderLayout());
+    		setBackground(new Color(240,240,240)); // 배경색
+    		
+    		setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.gray,2),
+    				"실시간 이용자 현황",0,0,new Font("맑은 고딕",Font.BOLD,18), Color.DARK_GRAY)); 
+    		
+    		userCountLabel = new JLabel("현재 이용자 수: "+currentUser);
+    		userCountLabel.setFont(new Font("맑은 고딕",Font.BOLD,16));
+    		userCountLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    		
+    		crowdCheckLabel = new JLabel("혼잡도: "+ getCrowdLevel(currentUser));
+    		crowdCheckLabel.setFont(new Font("맑은 고딕", Font.BOLD,16));
+    		crowdCheckLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    		
+    		crowdGraphLabel = new crowdGraph(currentUser);
+    		crowdGraphLabel.setPreferredSize(new Dimension(200,150)); //그래프 크기 조절
+    		
+    		JPanel statusPanel = new JPanel();
+    		statusPanel.setLayout(new GridLayout(2,1));
+    		statusPanel.setBackground(new Color(240,240,240));
+    		statusPanel.add(userCountLabel);
+    		statusPanel.add(crowdCheckLabel);
+    		
+    		add(statusPanel, BorderLayout.NORTH);
+    		add(crowdGraphLabel, BorderLayout.CENTER);
+    	}
+    }
+    
+    private String getCrowdLevel(int userCount) {
+       if(userCount < 15) {
+          return "여유";
+       } else if (userCount < 20) {
+          return "보통";
+       } else {
+          return "혼잡";
+       }
+    }
+    
+    private void showUserStatus() {
+    	userStatusPanel statusPanel = new userStatusPanel(currentUser);
+        JFrame statusFrame = new JFrame("실시간 이용자 현황");
+        statusFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        statusFrame.add(statusPanel);
+        statusFrame.setSize(200, 450);
+        statusFrame.setVisible(true);
+    }
+
+    private void playSound(String soundFile) {
+        try {
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(getClass().getResource(soundFile));
+            Clip clip = AudioSystem.getClip();
+            clip.open(audioInputStream);
+            clip.start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private class ButtonClickListener implements ActionListener {
+        private String buttonLabel;
+
+        public ButtonClickListener(String label) {
+            this.buttonLabel = label;
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            switch (buttonLabel) {
+                case "회원 관리":
+                    if (userFrame == null || !userFrame.isVisible()) {
+                        userFrame = new JFrame("회원 관리");
+                        userFrame.setSize(700, 500);
+                        userFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                        userFrame.setLayout(new GridBagLayout());
+                        GridBagConstraints gbc = new GridBagConstraints();
+                        gbc.insets = new Insets(10,10,10,10);
+                        
+                        // 회원 정보
+                        JLabel nameLabel = new JLabel("이름: "+user.name);
+                        nameLabel.setFont(new Font("맑은 고딕", Font.BOLD,20));
+                        JLabel ageLabel = new JLabel("나이: "+user.age);
+                        ageLabel.setFont(new Font("맑은 고딕", Font.BOLD,20));
+                        JLabel joinDateLabel = new JLabel("가입 날짜: "+user.joinDate);
+                        joinDateLabel.setFont(new Font("맑은 고딕", Font.BOLD,20));
+                        JLabel endDateLabel = new JLabel("해지 날짜: "+user.endDate);
+                        endDateLabel.setFont(new Font("맑은 고딕", Font.BOLD,20));
+                        JLabel photoLabel = new JLabel(user.photo);
+                        
+                        // 패널에 추가
+                        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
+                        userFrame.add(photoLabel, gbc);
+                        gbc.gridwidth = 1;
+                        gbc.gridy++;
+                        userFrame.add(nameLabel, gbc);
+                        gbc.gridy++;
+                        userFrame.add(ageLabel, gbc);
+                        gbc.gridy++;
+                        userFrame.add(joinDateLabel, gbc);
+                        gbc.gridy++;
+                        userFrame.add(endDateLabel, gbc);
+                        
+                        userFrame.setVisible(true);
+                    }
+                    break;
+                case "PT 예약": // 내가 구현할 부분
+                    if (ptFrame == null || !ptFrame.isVisible()) {
+                        ptFrame = new JFrame("PT 예약");
+                        ptFrame.setSize(900, 600);
+                        ptFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+                        String[] columnNames = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+                        DefaultTableModel calendarModel = new DefaultTableModel(null, columnNames);
+                        JTable calendarTable = new JTable(calendarModel);
+                        calendarTable.setRowHeight(40);
+
+                        LocalDate now = LocalDate.now();
+                        fillCalendar(calendarModel, now.getYear(), now.getMonthValue());
+
+                        calendarTable.addMouseListener(new java.awt.event.MouseAdapter() {
+                            public void mouseClicked(java.awt.event.MouseEvent e) {
+                                int row = calendarTable.getSelectedRow();
+                                int col = calendarTable.getSelectedColumn();
+                                Object value = calendarTable.getValueAt(row, col);
+
+                                if (value != null && !value.toString().isEmpty()) {
+                                    calendarTable.setValueAt("예약 완료", row, col);
+                                }
+                            }
+                        });
+
+                        JScrollPane scrollPane = new JScrollPane(calendarTable);
+                        ptFrame.add(scrollPane);
+
+                        ptFrame.setVisible(true);
+                    }
+                    break; 
+                case "트레이너 정보": // CardLayout을 이용한 구현
+                    if (trainerFrame == null || !trainerFrame.isVisible()) {
+                        trainerFrame = new JFrame("트레이너 정보");
+                        trainerFrame.setSize(500,400);
+                        trainerFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
+                        CardLayout cardLayout = new CardLayout(); //cardLayout
+                        JPanel cardPanel = new JPanel(cardLayout); //cardLayout
+
+                        // 트레이너 데이터
+                        String[] trainerNames = {"김민서", "전형준", "유상미"};
+                        String[] purpose = {"다이어트", "벌크업", "재활 운동"};
+                        String[] experiences = {"11년 경력", "13년 경력", "25년 경력"};
+                        String[] say= {"열심히 하겠습니다","열심히 하겠습니다","열심히 하겠습니다"};
+
+                        ImageIcon[] photos = {
+                            new ImageIcon(getClass().getResource("/images/trainer_pic2.jpg")),
+                            new ImageIcon(getClass().getResource("/images/john.png")),
+                            new ImageIcon(getClass().getResource("/images/trainer_pic.jpg"))
+                        };
+
+                        for (int i = 0; i < trainerNames.length; i++) {
+                            JPanel trainerCard = new JPanel(new BorderLayout());
+                            JLabel trainer_pic = new JLabel(photos[i]);
+                            trainer_pic.setHorizontalAlignment(SwingConstants.CENTER);
+
+                            JPanel trainer_inform = new JPanel(new GridLayout(4, 1));
+                            trainer_inform.add(new JLabel("이름: " + trainerNames[i]));
+                            trainer_inform.add(new JLabel("전문 분야: " + purpose[i]));
+                            trainer_inform.add(new JLabel("경력: " + experiences[i]));
+                            trainer_inform.add(new JLabel("각오의 한마디: "+ say[i]));
+                            
+                            trainerCard.add(trainer_pic, BorderLayout.CENTER);
+                            trainerCard.add(trainer_inform, BorderLayout.SOUTH);
+
+                            cardPanel.add(trainerCard, "Trainer" + i);
+                        }
+
+                        JButton prevButton = new JButton("이전");
+                        prevButton.addActionListener(e1 -> cardLayout.previous(cardPanel));
+
+                        JButton nextButton = new JButton("다음");
+                        nextButton.addActionListener(e1 -> cardLayout.next(cardPanel));
+
+                        JPanel buttonPanel = new JPanel();
+                        buttonPanel.add(prevButton);
+                        buttonPanel.add(nextButton);
+
+                        trainerFrame.setLayout(new BorderLayout());
+                        trainerFrame.add(cardPanel, BorderLayout.CENTER);
+                        trainerFrame.add(buttonPanel, BorderLayout.SOUTH);
+
+                        trainerFrame.setVisible(true);
+                    }
+                    break;
+                case "운동 기록":
+                    if (recordFrame == null || !recordFrame.isVisible()) {
+                        recordFrame = new JFrame("운동 기록");
+                        recordFrame.setSize(900, 600);
+                        recordFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                        JLabel label4 = new JLabel("운동 기록 화면입니다.", SwingConstants.CENTER);
+                        label4.setFont(new Font("맑은 고딕", Font.PLAIN, 19));
+                        recordFrame.add(label4);
+                        recordFrame.setVisible(true);
+                    }
+                    break;
+                case "멤버십":
+                    if (membershipFrame == null || !membershipFrame.isVisible()) {
+                        membershipFrame = new JFrame("멤버십");
+                        membershipFrame.setSize(900, 600);
+                        membershipFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+                        JLabel label5 = new JLabel("멤버십 화면입니다.", SwingConstants.CENTER);
+                        label5.setFont(new Font("맑은 고딕", Font.PLAIN, 19));
+                        membershipFrame.add(label5);
+                        membershipFrame.setVisible(true);
+                    }
+                    break;
+                // 추가적인 버튼에 대한 처리도 필요하면 여기에 추가
+            }
+        }
+    }
+    
+    private void fillCalendar(DefaultTableModel model, int year, int month) {
+        model.setRowCount(0); // 기존 데이터 지우기
+        YearMonth ym = YearMonth.of(year, month); // 해당 년월 가져오기
+        int daysInMonth = ym.lengthOfMonth(); // 그 달의 일 수
+        int firstDay = LocalDate.of(year, month, 1).getDayOfWeek().getValue() % 7; // 첫날 요일 (일요일 = 0)
+
+        Object[] week = new Object[7];
+        int day = 1;
+
+        for (int i = 0; i < firstDay; i++) {
+            week[i] = ""; // 첫 주 빈칸 채우기
+        }
+        for (int i = firstDay; i < 7; i++) {
+            week[i] = day++; // 첫 주 날짜 채우기
+        }
+        model.addRow(week);
+
+        while (day <= daysInMonth) {
+            week = new Object[7];
+            for (int i = 0; i < 7 && day <= daysInMonth; i++) {
+                week[i] = day++; // 남은 날짜 채우기
+            }
+            model.addRow(week);
+        }
+    }
+
+    public static void main(String[] args) {
+        // 메인
+        Gym gapp = new Gym();
+    }
+}
